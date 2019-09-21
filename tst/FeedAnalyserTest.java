@@ -101,4 +101,10 @@ public class FeedAnalyserTest {
         assertEquals(Arrays.asList(sampleFeed[4], sampleFeed[5], sampleFeed[9]),
                 sampleAnalyser.getPostsWithText("no"));
     }
+
+    @Test
+    public void testBoyerMoore() {
+        sampleAnalyser.getPostsWithText("CCTTTTGC");
+        sampleAnalyser.getPostsWithText("T");
+    }
 }

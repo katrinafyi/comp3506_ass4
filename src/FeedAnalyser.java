@@ -11,6 +11,8 @@ public class FeedAnalyser {
 
     private HashMap<String, ArrayList<Date>> userDatesMap = new HashMap<>();
 
+    private ArrayList<FeedItem> postsById = new ArrayList<>();
+
     private ArrayList<FeedItem> postsByUpvotes = new ArrayList<>();
     private int upvotesIndex = 0;
 
@@ -28,8 +30,11 @@ public class FeedAnalyser {
             userPostsMap.computeIfAbsent(user, k -> new ArrayList<>())
                     .add(item);
             postsByUpvotes.add(item);
+            postsById.add(item);
         }
 
+        // sort in ASCENDING order of ID
+        postsById.sort(Comparator.comparingLong(FeedItem::getId));
 
         // sort in DESCENDING order of upvotes
         postsByUpvotes.sort((a, b) -> b.getUpvotes() - a.getUpvotes());
@@ -152,6 +157,33 @@ public class FeedAnalyser {
     }
 
 
+    private static Map<Character, int[]> buildBadCharMap(String pattern) {
+        Map<Character, int[]> map = new HashMap<>();
+        char[] charArray = pattern.toCharArray();
+        Set<Character> charSet = new HashSet<>();
+        for (char value : charArray)
+            charSet.add(value);
+
+        // for each possible character in the pattern
+        for (Character c : charSet) {
+            int[] shifts = new int[charArray.length];
+            map.put(c, shifts);
+            // for each bad character position. that is, if we see this char
+            // c at position i
+            for (int i = charArray.length-1; i >= 0; i--) {
+                shifts[i] = -1; // shift past the string
+                // iterate backwards to find the next shift
+                for (int j = i-1; j >= 0; j--) {
+                    if (charArray[j] == c) {
+                        shifts[i] = j;
+                        break;
+                    }
+                }
+            }
+        }
+        return map;
+    }
+
     /**
      * Return all feed items containing the specific pattern in the content field
      * Case should not be ignored, eg. the pattern "hi" should not be matched in the text "Hi there"
@@ -165,6 +197,39 @@ public class FeedAnalyser {
      * @ensure result != null
      */
     public List<FeedItem> getPostsWithText(String pattern) {
+        Map<Character, int[]> badCharMap = buildBadCharMap(pattern);
+        List<FeedItem> results = new LinkedList<>();
+
+        char[] patt = pattern.toCharArray();
+        for (FeedItem item : postsById) {
+//            char[] text = item.getContent().toCharArray();
+            char[] text = "GCTTCTGCTACCTTTTGCGCGCGCGCGGAA".toCharArray();
+            int position = 0;
+            boolean mismatch;
+            while (position + patt.length <= text.length) {
+                System.out.println("testing position: " + position);
+                mismatch = false;
+                for (int i = patt.length-1; i >= 0; i--) {
+                    if (patt[i] != text[position+i]) {
+                        int[] shifts = badCharMap.get(text[position+i]);
+                        if (shifts == null) {
+                            // char in text does not appear in pattern.
+                            // shift until end of pattern is past this point.
+                            position += i + 1;
+                        } else {
+                            position += i - shifts[i];
+                        }
+                        mismatch = true;
+                        break;
+                    }
+                }
+                if (!mismatch) {
+                    System.out.println("matched!");
+                    break;
+                }
+            }
+            break; // testing
+        }
         return null;
     }
 }
