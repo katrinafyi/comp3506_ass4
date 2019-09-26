@@ -68,9 +68,25 @@ which is indexed in $\mathcal O(1)$ time.
 Thus, this is $\mathcal O(\log n)$ worst-case.
 
 \section*{getHighestUpvote}
-
+This is just an array indexing which is  $\mathcal O(1)$ time,
+using a precomputed sorted list of posts. An integer variable keeps track of 
+which index of the array we are currently up to. This is also incremented each time 
+the function is called.
 
 \section*{getPostsWithText}
+This is an implementation of the Boyer-Moore algorithm to search 
+the text of every post. Suppose we have a pattern of length $m$,
+ $n$ is the number of posts and $k$ is the maximum text length.
+
+Preprocessing for the Boyer-Moore algorithm takes $\mathcal O(m)$ time
+and this is done once for all texts.
+The algorithm runs in $\mathcal O(m + k)$ if the 
+search pattern does not appear and $\mathcal O(mk)$ if it does \cite{sustik}. 
+
+Thus, searching every post for this pattern will take $\mathcal O(np(mk) + n(1-p)(m+k))$
+worst-case where $p$ is the proportion of posts which match the search pattern.
+ 
+ 
 
 \bibliography{bibliography}
 \bibliographystyle{IEEEtran}
