@@ -24,38 +24,6 @@ public class FeedAnalyserTest {
         sampleAnalyser = new FeedAnalyser("tst/feed-sample.csv");
     }
 
-    @Test
-    public void testLeastUpperBound() {
-        List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7);
-        List<Integer> list2 = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 50, 60);
-        assertEquals(3, FeedAnalyser.leastUpperBound(list, 4));
-        assertEquals(4, FeedAnalyser.leastUpperBound(list, 5));
-        assertEquals(0, FeedAnalyser.leastUpperBound(list, 1));
-        assertEquals(6, FeedAnalyser.leastUpperBound(list, 100));
-
-        assertEquals(8, FeedAnalyser.leastUpperBound(list2, 100));
-        assertEquals(7, FeedAnalyser.leastUpperBound(list2, 59));
-        assertEquals(8, FeedAnalyser.leastUpperBound(list2, 60));
-        assertEquals(6, FeedAnalyser.leastUpperBound(list2, 8));
-        assertEquals(-1, FeedAnalyser.leastUpperBound(list2, 0));
-
-        assertEquals(0, FeedAnalyser.greatestLowerBound(list, 1));
-        assertEquals(0, FeedAnalyser.greatestLowerBound(list, -10));
-        assertEquals(1, FeedAnalyser.greatestLowerBound(list, 2));
-        assertEquals(7, FeedAnalyser.greatestLowerBound(list2, 49));
-
-        List<Integer> listOne = Arrays.asList(2);
-        assertEquals(1, FeedAnalyser.greatestLowerBound(listOne, 49));
-        assertEquals(0, FeedAnalyser.greatestLowerBound(listOne, 2));
-        assertEquals(0, FeedAnalyser.greatestLowerBound(listOne, -1));
-
-        List<Integer> listThree = Arrays.asList(1, 3, 5);
-        assertEquals(1, FeedAnalyser.leastUpperBound(listThree, 3));
-        assertEquals(1, FeedAnalyser.greatestLowerBound(listThree, 3));
-        assertEquals(0, FeedAnalyser.leastUpperBound(listThree, 2));
-        assertEquals(1, FeedAnalyser.greatestLowerBound(listThree, 2));
-    }
-
     @Test(timeout=1000)
     public void testGetPostsBetweenDates() {
         assertEquals(Collections.singletonList(sampleFeed[6]),
