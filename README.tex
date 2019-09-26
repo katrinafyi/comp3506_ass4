@@ -18,14 +18,61 @@
 \maketitle
 
 \part*{Implementation Details}
+\section*{FeedAnalyser Constructor}
+This makes use of a HashMap which maps users to a tree map.
+HashMap is implemented by the Java Collections Framework using a
+hash table \cite{hashmap}. By default (which we use), this has a load factor of $0.75$,
+meaning the hash-table is resized when 75\% of its buckets are full.
+This is a compromise between time and space costs and results in 
+(amortised) $\mathcal O(1)$ insertions and lookups, with linear space usage.
+In the worst case, it is $\mathcal O(n)$ if the hash table needs to be 
+resized.
+
+The TreeMap maps dates to an ArrayList of posts made on that day.
+This is implemented by the JCF as a red-black tree \cite{treemap}. 
+This has the property of 
+$\mathcal O(\log n)$ insertion and lookup in all cases \cite{clrs}.
+
+Finally, the ArrayList is an array-backed list with constant-time insertions \cite{arraylist}.
+
+Suppose there are $n$ FeedItems and the get methods on FeedItem are $\mathcal O(1)$.
+In the constructor, the \verb|while| loop iterates $n$ times, 
+each iteration taking $\mathcal O(\log n)$ time because of the 
+TreeMap inseration. The other operations (ArrayList add) are $\mathcal O(1)$.
+As a whole, this loop takes $\mathcal O(n \log n)$ and the array sorting algorithm used by 
+Java is bounded by $\mathcal O(n \log n)$ \cite{sort}.
+Thus, the constructor is bounded by
+$\mathcal O(n \log n)$ in the worst case.
 
 \section*{getPostsBetweenDate}
-asdf
+This performs a lookup on the HashMap to get one user's posts, 
+in $\mathcal O(1)$ time.
+Then, we index the nearest index using \verb|subMap()|, \verb|headMap()|
+or \verb|tailMap()| to get the range of posts between the given dates. 
+This is done using lookups which are always $\mathcal O(\log n)$ 
+for a red-black tree since they are balanced \cite{redblack}. Note that 
+this TreeMap only contains the posts for this user, so will often contain 
+less than $n$ items if there are multiple users posting.
+
+Then, we collect the lists of across all dates in the range into an ArrayList, which takes 
+$\mathcal O(k)$ time where $k$ is the number of posts falling within the range.
+
+The algorithm is worst-case $\mathcal O(\log n)$ or $\mathcal O(k)$, whichever is larger.
+
 
 \section*{getPostAfterDate}
+This performs one lookup on a HashMap and one loopup on a TreeMap. 
+These are $\mathcal O(1)$ and $\mathcal O(\log n)$ respectively
+(with the same caveats as above). This returns an array
+which is indexed in $\mathcal O(1)$ time.
+Thus, this is $\mathcal O(\log n)$ worst-case.
 
 \section*{getHighestUpvote}
 
+
 \section*{getPostsWithText}
+
+\bibliography{bibliography}
+\bibliographystyle{IEEEtran}
 
 \end{document}
