@@ -1,16 +1,21 @@
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Class that implements the social media feed searches
  */
 public class FeedAnalyser {
 
-    private HashMap<String, TreeMap<Date, List<FeedItem>>>
+    private HashMap<String, ArrayList<FeedItem>>
             userPostsMap = new HashMap<>();
 
+    private HashMap<String, ArrayList<Date>> userDatesMap = new HashMap<>();
+
     private ArrayList<FeedItem> postsById = new ArrayList<>();
+
     private ArrayList<FeedItem> postsByUpvotes = new ArrayList<>();
     private int upvotesIndex = 0;
+
 
     /**
      * Loads social media feed data from a file
@@ -22,11 +27,8 @@ public class FeedAnalyser {
         while (iter.hasNext()) {
             FeedItem item = iter.next();
             String user = item.getUsername();
-            // tree map will sort the keys for us
-            userPostsMap.computeIfAbsent(user, k -> new TreeMap<>())
-                    .computeIfAbsent(item.getDate(), d -> new ArrayList<>())
+            userPostsMap.computeIfAbsent(user, k -> new ArrayList<>())
                     .add(item);
-
             postsByUpvotes.add(item);
             postsById.add(item);
         }
@@ -36,7 +38,89 @@ public class FeedAnalyser {
 
         // sort in DESCENDING order of upvotes
         postsByUpvotes.sort((a, b) -> b.getUpvotes() - a.getUpvotes());
+
+        // sort each user's feed item list. O(n log n)?
+        userPostsMap.forEach((user, list) -> list.sort(
+                (a, b) -> a.getDate().compareTo(b.getDate())));
+
+        // map each sorted feed item to its date in the userDatesMap.
+        for (Map.Entry<String, ArrayList<FeedItem>> entry
+                : userPostsMap.entrySet()) {
+            userDatesMap.put(entry.getKey(), new ArrayList<>(
+                    entry.getValue().stream()
+                            .map(FeedItem::getDate)
+                            .collect(Collectors.toList())));
+        }
     }
+
+    /**
+     * Returns the smallest i such that bound < list[i+1]. That is, the
+     * index of the rightmost element <= bound.
+     * @param list
+     * @param bound
+     * @param <T>
+     * @return
+     */
+    // TODO: private this
+    public static <T extends Comparable<T>> int findTightestBound(
+            List<T> list, T bound, boolean upperBound) {
+        int len = list.size();
+        int mult = upperBound ? 1 : -1;
+
+        if (mult * bound.compareTo(list.get(len-1)) >= 0) {
+            return len-1;
+        }
+
+        if (mult * bound.compareTo(list.get(0)) <= 0) {
+            return 0;
+        }
+
+        int mid = (len-1) / 2;
+        if (mid > 0 && mult * list.get(mid-1).compareTo(bound) <= 0
+                    && mult * bound.compareTo(list.get(mid)) <= 0) {
+            return mid-1;
+        }
+
+        if (mult * list.get(mid).compareTo(bound) < 0) {
+            // bound is in left half
+            return findTightestBound(list.subList(0, mid-1), bound, upperBound);
+        } else {
+            // bound is in right half
+            return mid + findTightestBound(
+                    list.subList(mid+1, list.size()), bound, upperBound);
+        }
+    }
+
+    public static <T extends Comparable<T>> int leastUpperBound(
+            List<T> list, T upperBound) {
+        int l = 0;
+        int r = list.size();
+        while (l < r) {
+            int m = (l + r) / 2;
+            if (list.get(m).compareTo(upperBound) > 0) {
+                r = m;
+            } else {
+                l = m + 1;
+            }
+        }
+        return l - 1;
+    }
+
+    public static <T extends Comparable<T>> int greatestLowerBound(
+            List<T> list, T lowerBound) {
+        int l = 0;
+        int r = list.size();
+        while (l < r) {
+            int m = (l + r) / 2;
+            if (list.get(m).compareTo(lowerBound) < 0) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+        return l;
+    }
+
 
     /**
      * Return all feed items posted by the given username between startDate and endDate (inclusive)
@@ -54,32 +138,22 @@ public class FeedAnalyser {
      * @ensure result != null
      */
     public List<FeedItem> getPostsBetweenDates(String username, Date startDate, Date endDate) {
-        TreeMap<Date, List<FeedItem>> userPosts = userPostsMap.get(username);
-        if (userPosts == null) // user has no posts.
-            return Collections.emptyList();
-
-        Map<Date, List<FeedItem>> matchedItems;
-        if (startDate == null && endDate == null) {
-            matchedItems = userPosts;
-        } else if (startDate == null) {
-            // get all items before endDate
-            matchedItems = userPosts.headMap(endDate, true);
-        } else if (endDate == null) {
-            // get items after startDate
-            matchedItems = userPosts.tailMap(startDate, true);
+        List<FeedItem> userPosts = userPostsMap.get(username);
+        List<Date> userDates = userDatesMap.get(username);
+        int lower, upper;
+        if (startDate != null) {
+            lower = greatestLowerBound(userDates, startDate);
         } else {
-            // get items bounded by startDate and endDate.
-            matchedItems = userPosts.subMap(startDate, true, endDate, true);
+            lower = 0;
         }
-
-        // preallocate enough space for 2 posts per date.
-        List<FeedItem> results = new ArrayList<>(2 * matchedItems.size());
-        for (List<FeedItem> dateList : matchedItems.values()) {
-            // collect all dates together into a list of results. will be
-            // ordered by date because TreeMap is ordered by date.
-            results.addAll(dateList);
+        if (endDate != null) {
+            upper = leastUpperBound(userDates, endDate);
+            if (upper < userDates.size())
+                upper += 1; // because upper end is exclusive in subList()
+        } else {
+            upper = userDates.size();
         }
-        return results;
+        return userPosts.subList(lower, upper);
     }
 
     /**
@@ -94,11 +168,8 @@ public class FeedAnalyser {
      * @require username != null && searchDate != null
      */
     public FeedItem getPostAfterDate(String username, Date searchDate) {
-        Map.Entry<Date, List<FeedItem>> entry = userPostsMap.get(username)
-                .ceilingEntry(searchDate);
-        if (entry == null || entry.getValue().size() == 0)
-            return null; // no items matched
-        return entry.getValue().get(0); // get first element with that date
+        List<FeedItem> postsAfter = getPostsBetweenDates(username, searchDate, null);
+        return postsAfter.size() > 0 ? postsAfter.get(0) : null;
     }
 
     /**
