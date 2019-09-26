@@ -156,32 +156,41 @@ public class FeedAnalyser {
         return postsByUpvotes.get(upvotesIndex++);
     }
 
-
-    private static Map<Character, int[]> buildBadCharMap(String pattern) {
-        Map<Character, int[]> map = new HashMap<>();
-        char[] charArray = pattern.toCharArray();
-        Set<Character> charSet = new HashSet<>();
-        for (char value : charArray)
-            charSet.add(value);
-
-        // for each possible character in the pattern
-        for (Character c : charSet) {
-            int[] shifts = new int[charArray.length];
-            map.put(c, shifts);
-            // for each bad character position. that is, if we see this char
-            // c at position i
-            for (int i = charArray.length-1; i >= 0; i--) {
-                shifts[i] = -1; // shift past the string
-                // iterate backwards to find the next shift
-                for (int j = i-1; j >= 0; j--) {
-                    if (charArray[j] == c) {
-                        shifts[i] = j;
-                        break;
-                    }
-                }
+    /**
+     * Returns the lowest index at which substring pattern begins in text
+     * (or else -1).
+     *
+     * This is taken from Goodrich, Tamassia and Goldwasser's sample code
+     * for the textbook Data Structures and Algorithms in Java, Sixth Edition.
+     * The program is licensed under the GPLv3.
+     *
+     * @param text Text to search in, as a char array.
+     * @param pattern Pattern so search for, as char array.
+     * @return Lowest index of match or -1 if no match.
+     */
+    public static int findBoyerMoore(char[] text, char[] pattern) {
+        int n = text.length;
+        int m = pattern.length;
+        if (m == 0) return 0;                            // trivial search for empty string
+        Map<Character,Integer> last = new HashMap<>();   // the 'last' map
+        for (int i=0; i < n; i++)
+            last.put(text[i], -1);               // set -1 as default for all text characters
+        for (int k=0; k < m; k++)
+            last.put(pattern[k], k);             // rightmost occurrence in pattern is last
+        // start with the end of the pattern aligned at index m-1 of the text
+        int i = m-1;                                     // an index into the text
+        int k = m-1;                                     // an index into the pattern
+        while (i < n) {
+            if (text[i] == pattern[k]) {                   // a matching character
+                if (k == 0) return i;                        // entire pattern has been found
+                i--;                                         // otherwise, examine previous
+                k--;                                         // characters of text/pattern
+            } else {
+                i += m - Math.min(k, 1 + last.get(text[i])); // case analysis for jump step
+                k = m - 1;                                   // restart at end of pattern
             }
         }
-        return map;
+        return -1;                                       // pattern was never found
     }
 
     /**
@@ -197,39 +206,16 @@ public class FeedAnalyser {
      * @ensure result != null
      */
     public List<FeedItem> getPostsWithText(String pattern) {
-        Map<Character, int[]> badCharMap = buildBadCharMap(pattern);
-        List<FeedItem> results = new LinkedList<>();
+        char[] patternArray = pattern.toCharArray();
+        List<FeedItem> results = new ArrayList<>();
 
-        char[] patt = pattern.toCharArray();
         for (FeedItem item : postsById) {
-//            char[] text = item.getContent().toCharArray();
-            char[] text = "GCTTCTGCTACCTTTTGCGCGCGCGCGGAA".toCharArray();
-            int position = 0;
-            boolean mismatch;
-            while (position + patt.length <= text.length) {
-                System.out.println("testing position: " + position);
-                mismatch = false;
-                for (int i = patt.length-1; i >= 0; i--) {
-                    if (patt[i] != text[position+i]) {
-                        int[] shifts = badCharMap.get(text[position+i]);
-                        if (shifts == null) {
-                            // char in text does not appear in pattern.
-                            // shift until end of pattern is past this point.
-                            position += i + 1;
-                        } else {
-                            position += i - shifts[i];
-                        }
-                        mismatch = true;
-                        break;
-                    }
-                }
-                if (!mismatch) {
-                    System.out.println("matched!");
-                    break;
-                }
+            if (findBoyerMoore(item.getContent().toCharArray(),
+                    patternArray) != -1) {
+                results.add(item);
             }
-            break; // testing
         }
-        return null;
+
+        return results;
     }
 }
