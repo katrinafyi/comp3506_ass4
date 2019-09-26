@@ -1,5 +1,4 @@
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Class that implements the social media feed searches
@@ -23,9 +22,11 @@ public class FeedAnalyser {
         while (iter.hasNext()) {
             FeedItem item = iter.next();
             String user = item.getUsername();
+            // tree map will sort the keys for us
             userPostsMap.computeIfAbsent(user, k -> new TreeMap<>())
                     .computeIfAbsent(item.getDate(), d -> new ArrayList<>())
                     .add(item);
+
             postsByUpvotes.add(item);
             postsById.add(item);
         }
@@ -71,7 +72,8 @@ public class FeedAnalyser {
             matchedItems = userPosts.subMap(startDate, true, endDate, true);
         }
 
-        List<FeedItem> results = new ArrayList<>();
+        // preallocate enough space for 2 posts per date.
+        List<FeedItem> results = new ArrayList<>(2 * matchedItems.size());
         for (List<FeedItem> dateList : matchedItems.values()) {
             // collect all dates together into a list of results. will be
             // ordered by date because TreeMap is ordered by date.
