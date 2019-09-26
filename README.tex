@@ -57,7 +57,21 @@ less than $n$ items if there are multiple users posting.
 Then, we collect the lists of across all dates in the range into an ArrayList, which takes 
 $\mathcal O(k)$ time where $k$ is the number of posts falling within the range.
 
-The algorithm is worst-case $\mathcal O(\log n)$ or $\mathcal O(k)$, whichever is larger.
+The algorithm is worst-case $\mathcal O(\log n)$ or $\mathcal O(k)$, whichever is larger,
+and usees $\mathcal O(n)$ space as every FeedItem needs to be stored once.
+
+This algorithm is obviously better than brute-force search which 
+would take $\mathcal O(n)$ time. An alternative implementation could be using a 
+binary search on an array of posts sorted by date. This has the advantage of 
+the data structure being simpler than a TreeMap, but operations require manually 
+binary searching through the array. We choose TreeMap which provides 
+a simpler interface with equivalent $\mathcal O(\log n)$ performance for lookups,
+which is advantageous if the code needs to be easy to read and understand,
+e.g. for lecture examples.
+
+A disadvantage of this is needing to collect posts from different dates into one 
+list to return, which takes $\mathcal O(k)$ time. We assume that $k \ll \log n$ 
+so this is not a problem.
 
 
 \section*{getPostAfterDate}
@@ -73,9 +87,14 @@ using a precomputed sorted list of posts. An integer variable keeps track of
 which index of the array we are currently up to. This is also incremented each time 
 the function is called.
 
+This implementation takes $\mathcal O(n)$ space to store a sorted list, 
+where $n$ is the number of total 
+posts and is constant time. If space is not a concern, this is the best possible 
+result (asymptotically). 
+
 \section*{getPostsWithText}
 This is an implementation of the Boyer-Moore algorithm to search 
-the text of every post. Suppose we have a pattern of length $m$,
+the text of every post. Suppose $m$ is the length of the  pattern,
  $n$ is the number of posts and $k$ is the maximum text length.
 
 Preprocessing for the Boyer-Moore algorithm takes $\mathcal O(m)$ time
@@ -85,7 +104,14 @@ search pattern does not appear and $\mathcal O(mk)$ if it does \cite{sustik}.
 
 Thus, searching every post for this pattern will take $\mathcal O(np(mk) + n(1-p)(m+k))$
 worst-case where $p$ is the proportion of posts which match the search pattern.
- 
+This uses $\mathcal O(m)$ extra space.
+
+An alternative would be to use a suffix tree, which precomputes all suffixes of 
+each text. This would increase the preprocessing time (in the constructor) 
+to $\mathcal O(nk)$ but decrease the runtime of \verb|getPostsWithText|
+to $\mathcal O(nm)$ which, notably, does not depend on text length $k$ \cite{suffix}.
+However, this is only advantageous if many substrings will be searched. The current 
+Boyer-Moore moethod will be better if few patterns are searched.
  
 
 \bibliography{bibliography}
