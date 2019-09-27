@@ -1,7 +1,10 @@
 \documentclass[11pt,a4paper]{article} % Default style and margins
-\usepackage{courier}
+%\usepackage{courier}
+
 \input{../../header.tex}
 \input{../../problem_set.tex}
+
+\renewcommand{\familydefault}{\sfdefault}
 
 \titleformat{\part}
 {\normalfont\Large}{Problem }{0 pt}{}[\hrule]
@@ -18,7 +21,7 @@
 \maketitle
 
 \part*{Implementation Details}
-\section*{FeedAnalyser Constructor}
+\section*{FeedAnalyser (constructor)}
 This makes use of a HashMap which maps users to a tree map.
 HashMap is implemented by the Java Collections Framework using a
 hash table \cite{hashmap}. By default (which we use), this has a load factor of $0.75$,
@@ -33,23 +36,27 @@ This is implemented by the JCF as a red-black tree \cite{treemap}.
 This has the property of 
 $\mathcal O(\log n)$ insertion and lookup in all cases \cite{clrs}.
 
-Finally, the ArrayList is an array-backed list with constant-time insertions \cite{arraylist}.
+Finally, the ArrayList is an array-backed 
+list with amortised constant-time insertions \cite{arraylist}.
 
 Suppose there are $n$ FeedItems and the get methods on FeedItem are $\mathcal O(1)$.
 In the constructor, the \verb|while| loop iterates $n$ times, 
 each iteration taking $\mathcal O(\log n)$ time because of the 
-TreeMap inseration. The other operations (ArrayList add) are $\mathcal O(1)$.
+TreeMap inseration. 
+ArrayList add is $\mathcal O(1)$ and PriorityQueue add is $\mathcal O(\log n)$ 
+because it uses a heap \cite{pq}.
 As a whole, this loop takes $\mathcal O(n \log n)$ and the array sorting algorithm used by 
 Java is bounded by $\mathcal O(n \log n)$ \cite{sort}.
 Thus, the constructor is bounded by
 $\mathcal O(n \log n)$ in the worst case.
 
-\section*{getPostsBetweenDate}
+\section*{getPostsBetweenDates}
 This performs a lookup on the HashMap to get one user's posts, 
 in $\mathcal O(1)$ time.
-Then, we index the nearest index using \verb|subMap()|, \verb|headMap()|
+Then, we index the appropriate part of the TreeMap using 
+ \verb|subMap()|, \verb|headMap()|
 or \verb|tailMap()| to get the range of posts between the given dates. 
-This is done using lookups which are always $\mathcal O(\log n)$ 
+This is done using lookups which are always $\mathcal O(\log n)$
 for a red-black tree since they are balanced \cite{redblack}. Note that 
 this TreeMap only contains the posts for this user, so will often contain 
 less than $n$ items if there are multiple users posting.
@@ -57,8 +64,11 @@ less than $n$ items if there are multiple users posting.
 Then, we collect the lists of across all dates in the range into an ArrayList, which takes 
 $\mathcal O(k)$ time where $k$ is the number of posts falling within the range.
 
-The algorithm is worst-case $\mathcal O(\log n)$ or $\mathcal O(k)$, whichever is larger,
-and usees $\mathcal O(n)$ space as every FeedItem needs to be stored once.
+The algorithm is worst-case $\mathcal O(\log n + k)$
+and uses $\mathcal O(n)$ space as every FeedItem needs to be stored once 
+in some list of the TreeMap. There will be some overhead of 
+using one array per date but that is unavoidable since multiple posts 
+can be made at the same date-time, and it does not affect asymptotic space.
 
 This algorithm is obviously better than brute-force search which 
 would take $\mathcal O(n)$ time. An alternative implementation could be using a 
@@ -71,48 +81,71 @@ e.g. for lecture examples.
 
 A disadvantage of this is needing to collect posts from different dates into one 
 list to return, which takes $\mathcal O(k)$ time. We assume that $k \ll \log n$ 
-so this is not a problem.
+so this is not a problem. An list-backed implementation would be able to use Java's
+\verb|subList()| to return a range of posts in constant time, reducing runtime to 
+$\mathcal O(\log n)$.
 
 
 \section*{getPostAfterDate}
-This performs one lookup on a HashMap and one loopup on a TreeMap. 
-These are $\mathcal O(1)$ and $\mathcal O(\log n)$ respectively
-(with the same caveats as above). This returns an array
+This performs one lookup on a HashMap and one lookup on a TreeMap. 
+These are $\mathcal O(1)$ and $\mathcal O(\log n)$. 
+This returns an array
 which is indexed in $\mathcal O(1)$ time.
 Thus, this is $\mathcal O(\log n)$ worst-case.
 
-\section*{getHighestUpvote}
-This is just an array indexing which is  $\mathcal O(1)$ time,
-using a precomputed sorted list of posts. An integer variable keeps track of 
-which index of the array we are currently up to. This is also incremented each time 
-the function is called.
+This reuses the TreeMap of getPostsBetweenDates which was $\mathcal O(n)$
+space. Similar to above, 
+this could also be done using a sorted list and binary search. However, since we 
+already have the TreeMap implementation, we simply use that to avoid 
+introducing a new data structure.
 
-This implementation takes $\mathcal O(n)$ space to store a sorted list, 
-where $n$ is the number of total 
-posts and is constant time. If space is not a concern, this is the best possible 
-result (asymptotically). 
+\section*{getHighestUpvote}
+This is just a heap dequeue which is $\mathcal O(\log n)$ time,
+using a precomputed max-heap of posts by their upvotes. 
+
+This implementation takes $\mathcal O(n)$ space to store the queue,
+where $n$ is the total number of posts. 
+
+An alternative could be using a sorted list to store the posts 
+in order of upvotes.
+The queue implementation was 
+chosen because it is able to build the heap as the feed items are parsed.
+This is advantageous if the feed items are from a slow source (e.g. network)
+because the heap can be sorted asynchronously while waiting for the next 
+item. This avoids needing to wait for all feed items, then sorting the array.
+The sorted array would be better if, for example, we needed to find the $n$-th highest 
+upvoted post without repeatedly calling this method.
 
 \section*{getPostsWithText}
-This is an implementation of the Boyer-Moore algorithm to search 
+This uses an implementation of the Boyer-Moore algorithm to search 
 the text of every post. Suppose $m$ is the length of the  pattern,
  $n$ is the number of posts and $k$ is the maximum text length.
 
 Preprocessing for the Boyer-Moore algorithm takes $\mathcal O(m)$ time
-and this is done once for all texts.
-The algorithm runs in $\mathcal O(m + k)$ if the 
+with $\mathcal O(m)$ space 
+and this is done once per call.
+The algorithm itself runs in $\mathcal O(m + k)$ if the 
 search pattern does not appear and $\mathcal O(mk)$ if it does \cite{sustik}. 
 
 Thus, searching every post for this pattern will take $\mathcal O(np(mk) + n(1-p)(m+k))$
 worst-case where $p$ is the proportion of posts which match the search pattern.
 This uses $\mathcal O(m)$ extra space.
 
-An alternative would be to use a suffix tree, which precomputes all suffixes of 
+An alternative would be to use a suffix tree which precomputes all suffixes of 
 each text. This would increase the preprocessing time (in the constructor) 
 to $\mathcal O(nk)$ but decrease the runtime of \verb|getPostsWithText|
 to $\mathcal O(nm)$ which, notably, does not depend on text length $k$ \cite{suffix}.
 However, this is only advantageous if many substrings will be searched. The current 
-Boyer-Moore moethod will be better if few patterns are searched.
+Boyer-Moore method will be better if few patterns are searched because it does not 
+have the time cost of computing unneeded suffix trees.
  
+Furthermore, because of the skip rules of the Boyer-Moore algorithm, it is 
+well-suited to natural English text where the search pattern does not contain many 
+characters in the text and/or does not have repeated segments. 
+If BM encounters a letter in the text not in pattern, it can skip over the length of the pattern
+(bad character rule) \cite{jhu}.
+Similarly if BM matches only a suffix of the pattern then fails, it can skip the rest of the pattern 
+if this suffix does not reoccur in the pattern (good suffix rule) \cite{jhu}.
 
 \bibliography{bibliography}
 \bibliographystyle{IEEEtran}

@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 public class FeedAnalyserTest {
 
     private FeedAnalyser sampleAnalyser;
+    private FeedAnalyser sampleAnalyser2;
     private static FeedItem[] sampleFeed;
 
     static {
@@ -22,6 +23,7 @@ public class FeedAnalyserTest {
     @Before
     public void setup() {
         sampleAnalyser = new FeedAnalyser("tst/feed-sample.csv");
+        sampleAnalyser2 = new FeedAnalyser("tst/feed-sample2.csv");
     }
 
     @Test(timeout=1000)
@@ -40,6 +42,11 @@ public class FeedAnalyserTest {
                 sampleAnalyser.getPostsBetweenDates("emily",
                         Util.parseDate("03/01/2019 12:00:00"),
                         Util.parseDate("03/01/2019 12:00:01")));
+        System.out.println(Arrays.toString(
+                sampleAnalyser2.getPostsBetweenDates("james.gvr",
+                Util.parseDate("03/01/2019 12:00:00"),
+                Util.parseDate("05/01/2019 12:00:00")).toArray()
+        ));
     }
 
     @Test(timeout=1000)

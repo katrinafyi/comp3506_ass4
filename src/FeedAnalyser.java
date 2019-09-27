@@ -9,8 +9,7 @@ public class FeedAnalyser {
             userPostsMap = new HashMap<>();
 
     private ArrayList<FeedItem> postsById = new ArrayList<>();
-    private ArrayList<FeedItem> postsByUpvotes = new ArrayList<>();
-    private int upvotesIndex = 0;
+    private PriorityQueue<FeedItem> postsByUpvotes;
 
     /**
      * Loads social media feed data from a file
@@ -18,6 +17,11 @@ public class FeedAnalyser {
      * @param filename the file to load from
      */
     public FeedAnalyser(String filename) {
+        // sort in order of upvotes, with most upvotes at the front of the
+        // queue
+        postsByUpvotes = new PriorityQueue<>(
+                (a, b) -> b.getUpvotes() - a.getUpvotes());
+
         Iterator<FeedItem> iter = new Util.FileIterator(filename);
         while (iter.hasNext()) {
             FeedItem item = iter.next();
@@ -33,9 +37,6 @@ public class FeedAnalyser {
 
         // sort in ASCENDING order of ID
         postsById.sort(Comparator.comparingLong(FeedItem::getId));
-
-        // sort in DESCENDING order of upvotes
-        postsByUpvotes.sort((a, b) -> b.getUpvotes() - a.getUpvotes());
     }
 
     /**
@@ -113,7 +114,10 @@ public class FeedAnalyser {
      *      by this method
      */
     public FeedItem getHighestUpvote() throws NoSuchElementException {
-        return postsByUpvotes.get(upvotesIndex++);
+        FeedItem post = postsByUpvotes.poll();
+        if (post == null)
+            throw new NoSuchElementException();
+        return post;
     }
 
     /**
