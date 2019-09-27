@@ -5,7 +5,7 @@ import java.util.*;
  */
 public class FeedAnalyser {
 
-    private HashMap<String, TreeMap<Date, List<FeedItem>>>
+    private HashMap<String, ArrayList<FeedItem>>
             userPostsMap = new HashMap<>();
 
     private ArrayList<FeedItem> postsById = new ArrayList<>();
@@ -27,8 +27,7 @@ public class FeedAnalyser {
             FeedItem item = iter.next();
             String user = item.getUsername();
             // tree map will sort the keys for us
-            userPostsMap.computeIfAbsent(user, k -> new TreeMap<>())
-                    .computeIfAbsent(item.getDate(), d -> new ArrayList<>())
+            userPostsMap.computeIfAbsent(user, k -> new ArrayList<>())
                     .add(item);
 
             postsByUpvotes.add(item);
@@ -37,6 +36,10 @@ public class FeedAnalyser {
 
         // sort in ASCENDING order of ID
         postsById.sort(Comparator.comparingLong(FeedItem::getId));
+
+        // sort each user's posts list by the date.
+        userPostsMap.forEach((k, v) -> v.sort(
+                (a, b) -> a.getDate().compareTo(b.getDate())));
     }
 
     /**
@@ -55,32 +58,64 @@ public class FeedAnalyser {
      * @ensure result != null
      */
     public List<FeedItem> getPostsBetweenDates(String username, Date startDate, Date endDate) {
-        TreeMap<Date, List<FeedItem>> userPosts = userPostsMap.get(username);
-        if (userPosts == null) // user has no posts.
+        ArrayList<FeedItem> userPosts = userPostsMap.get(username);
+        // user has no posts or start is after end.
+        if (userPosts == null)
+            return Collections.emptyList();
+        int lower = 0;
+        int upper = userPosts.size();
+        if (startDate != null) {
+            lower = earliestPostAfter(userPosts, startDate);
+        }
+        if (endDate != null) {
+            upper = latestPostBefore(userPosts, endDate);
+        }
+        if (lower > upper)
             return Collections.emptyList();
 
-        Map<Date, List<FeedItem>> matchedItems;
-        if (startDate == null && endDate == null) {
-            matchedItems = userPosts;
-        } else if (startDate == null) {
-            // get all items before endDate
-            matchedItems = userPosts.headMap(endDate, true);
-        } else if (endDate == null) {
-            // get items after startDate
-            matchedItems = userPosts.tailMap(startDate, true);
-        } else {
-            // get items bounded by startDate and endDate.
-            matchedItems = userPosts.subMap(startDate, true, endDate, true);
-        }
+        if (upper < userPosts.size())
+            upper += 1; // because subList is exclusive of the upper bound
 
-        // preallocate enough space for 2 posts per date.
-        List<FeedItem> results = new ArrayList<>(2 * matchedItems.size());
-        for (List<FeedItem> dateList : matchedItems.values()) {
-            // collect all dates together into a list of results. will be
-            // ordered by date because TreeMap is ordered by date.
-            results.addAll(dateList);
+        return userPosts.subList(lower, upper);
+    }
+
+    /**
+     * Returns index of earliest post which is after or at the given date.
+     * Adapted from https://stackoverflow.com/a/22123545/2734389
+     */
+    private static int earliestPostAfter(List<FeedItem> list, Date date) {
+        int left = 0;
+        int right = list.size();
+        while (left < right) {
+            int mid = (left + right) / 2;
+            // we want to find the smallest i such that list[i] is >= date.
+            if (list.get(mid).getDate().compareTo(date) >= 0) {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
         }
-        return results;
+        return left;
+    }
+
+    /**
+     * Returns index of the latest post which is before or at the given date.
+     */
+    private static int latestPostBefore(List<FeedItem> list, Date date) {
+        int left = 0;
+        int right = list.size();
+        while (left < right) {
+            int mid = (left + right) / 2;
+            // we want the largest i such that list[i] <= date.
+            // this is equivalent to one less than the smallest j such that
+            // list[j] > date
+            if (list.get(mid).getDate().compareTo(date) > 0) {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        return left - 1;
     }
 
     /**
@@ -95,11 +130,13 @@ public class FeedAnalyser {
      * @require username != null && searchDate != null
      */
     public FeedItem getPostAfterDate(String username, Date searchDate) {
-        Map.Entry<Date, List<FeedItem>> entry = userPostsMap.get(username)
-                .ceilingEntry(searchDate);
-        if (entry == null || entry.getValue().size() == 0)
-            return null; // no items matched
-        return entry.getValue().get(0); // get first element with that date
+        ArrayList<FeedItem> list = userPostsMap.get(username);
+
+        int index = earliestPostAfter(list, searchDate);
+        // if index invalid, no posts matched
+        if (index >= list.size() || index < 0)
+            return null;
+        return list.get(index);
     }
 
     /**

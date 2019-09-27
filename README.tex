@@ -22,7 +22,8 @@
 
 \part*{Implementation Details}
 \section*{FeedAnalyser (constructor)}
-This makes use of a HashMap which maps users to a tree map.
+This makes use of a HashMap which maps a username to an ArrayList of their 
+posts.
 HashMap is implemented by the Java Collections Framework using a
 hash table \cite{hashmap}. By default (which we use), this has a load factor of $0.75$,
 meaning the hash-table is resized when 75\% of its buckets are full.
@@ -31,78 +32,72 @@ This is a compromise between time and space costs and results in
 In the worst case, it is $\mathcal O(n)$ if the hash table needs to be 
 resized.
 
-The TreeMap maps dates to an ArrayList of posts made on that day.
-This is implemented by the JCF as a red-black tree \cite{treemap}. 
-This has the property of 
-$\mathcal O(\log n)$ insertion and lookup in all cases \cite{clrs}.
+This ArrayList contains all posts made by a user and has amortised $\mathcal O(1)$
+insertion but $\mathcal O(n)$ worst-case (here, $n$ is number of items in the array)
+if it needs to be reallocated \cite{arraylist}.
+We also use another ArrayList to store all posts in order of their ID.
 
-Finally, the ArrayList is an array-backed 
-list with amortised constant-time insertions \cite{arraylist}.
+We use a PriorityQueue to store posts, in order of their upvotes. Higher upvoted 
+posts are dequeued first from the queue. 
 
 Suppose there are $n$ FeedItems and the get methods on FeedItem are $\mathcal O(1)$.
-In the constructor, the \verb|while| loop iterates $n$ times, 
+In the constructor, the \verb|while| loop iterates $n$ times (once per item), 
 each iteration taking $\mathcal O(\log n)$ time because of the 
-TreeMap inseration. 
-ArrayList add is $\mathcal O(1)$ and PriorityQueue add is $\mathcal O(\log n)$ 
-because it uses a heap \cite{pq}.
-As a whole, this loop takes $\mathcal O(n \log n)$ and the array sorting algorithm used by 
-Java is bounded by $\mathcal O(n \log n)$ \cite{sort}.
-Thus, the constructor is bounded by
+PriorityQueue insertion to a heap \cite{pq}. 
+ArrayList add and HashMap put are both amortised $\mathcal O(1)$ 
+as discussed earlier.
+As a whole, this loop takes $\mathcal O(n \log n)$.
+After the loop, we sort each list in the HashMap by the date of the posts, 
+and we sort the other array by post IDs.
+Java sorting is bounded by $\mathcal O(n \log n)$ \cite{sort},
+so the constructor is bounded by
 $\mathcal O(n \log n)$ in the worst case.
 
 \section*{getPostsBetweenDates}
 This performs a lookup on the HashMap to get one user's posts, 
-in $\mathcal O(1)$ time.
-Then, we index the appropriate part of the TreeMap using 
- \verb|subMap()|, \verb|headMap()|
-or \verb|tailMap()| to get the range of posts between the given dates. 
-This is done using lookups which are always $\mathcal O(\log n)$
-for a red-black tree since they are balanced \cite{redblack}. Note that 
-this TreeMap only contains the posts for this user, so will often contain 
-less than $n$ items if there are multiple users posting.
+in $\mathcal O(1)$ time. This gets an ArrayList of this user's posts, sorted 
+by the date of the post.
 
-Then, we collect the lists of across all dates in the range into an ArrayList, which takes 
-$\mathcal O(k)$ time where $k$ is the number of posts falling within the range.
+Then, we do two binary searches to find the earliest post after 
+the start date and the latest post before the end date (as needed)
+and use \verb|sublist()| to return the range of posts between these indices.
+The binary searches take $\mathcal O(\log n)$ due to it halving the search space 
+every iteration and \verb|subList| is $\mathcal O(1)$ because it only returns a view
+into the full list, without copying.
 
-The algorithm is worst-case $\mathcal O(\log n + k)$
-and uses $\mathcal O(n)$ space as every FeedItem needs to be stored once 
-in some list of the TreeMap. There will be some overhead of 
-using one array per date but that is unavoidable since multiple posts 
-can be made at the same date-time, and it does not affect asymptotic space.
+Note that the array we search on only contains the posts for this user so will often 
+be smaller than $n$ items in size if there are multiple users posting.
+
+The algorithm is worst-case $\mathcal O(\log n)$
+and uses $\mathcal O(n)$ space for the HashMap and ArrayLists; 
+every FeedItem needs to be stored once in some user's ArrayList. 
 
 This algorithm is obviously better than brute-force search which 
-would take $\mathcal O(n)$ time. An alternative implementation could be using a 
-binary search on an array of posts sorted by date. This has the advantage of 
-the data structure being simpler than a TreeMap, but operations require manually 
-binary searching through the array. We choose TreeMap which provides 
-a simpler interface with equivalent $\mathcal O(\log n)$ performance for lookups,
-which is advantageous if the code needs to be easy to read and understand,
-e.g. for lecture examples.
-
-A disadvantage of this is needing to collect posts from different dates into one 
-list to return, which takes $\mathcal O(k)$ time. We assume that $k \ll \log n$ 
-so this is not a problem. An list-backed implementation would be able to use Java's
-\verb|subList()| to return a range of posts in constant time, reducing runtime to 
-$\mathcal O(\log n)$.
-
+would take $\mathcal O(n)$ time. 
+An alternative efficient implementation could be using a 
+TreeMap keyed by the date of the post. This would allow efficient 
+indexing of ranges as well \cite{treemap}. However, it has 
+the disadvantage of only storing one post per date. To store multiple posts 
+per date, you would need to store lists in the TreeMap. Then, you would need 
+to aggregate all the lists into one before returning, increasing the runtime to 
+$\mathcal O(\log n + k)$ where $k$ is the number of posts between the two dates. 
+This is clearly unsuitable when managing large amounts of posts or large ranges of 
+times, and also has the overhead of one new list per date.
 
 \section*{getPostAfterDate}
-This performs one lookup on a HashMap and one lookup on a TreeMap. 
-These are $\mathcal O(1)$ and $\mathcal O(\log n)$. 
-This returns an array
-which is indexed in $\mathcal O(1)$ time.
+This performs one lookup on a HashMap and a binary search on a sorted ArrayList.
+These are $\mathcal O(1)$ and $\mathcal O(\log n)$ respectively.
 Thus, this is $\mathcal O(\log n)$ worst-case.
 
-This reuses the TreeMap of getPostsBetweenDates which was $\mathcal O(n)$
-space. Similar to above, 
-this could also be done using a sorted list and binary search. However, since we 
-already have the TreeMap implementation, we simply use that to avoid 
-introducing a new data structure.
+This reuses the data structure of getPostsBetweenDates which was $\mathcal O(n)$
+space. In the implementation, we actually reuse a helper method for getPostsBetweenDates.
+A brute-force algorithm on a sorted array (instead of binary search) would take $\mathcal O(n)$
+by iterating through each index and comparing it to the search date. The binary 
+search implemented is strictly better in runtime and equivalent in space.
 
 \section*{getHighestUpvote}
 This is just a heap dequeue which is $\mathcal O(\log n)$ time,
 using a precomputed max-heap of posts by their upvotes. 
-
 This implementation takes $\mathcal O(n)$ space to store the queue,
 where $n$ is the total number of posts. 
 
@@ -113,7 +108,7 @@ chosen because it is able to build the heap as the feed items are parsed.
 This is advantageous if the feed items are from a slow source (e.g. network)
 because the heap can be sorted asynchronously while waiting for the next 
 item. This avoids needing to wait for all feed items, then sorting the array.
-The sorted array would be better if, for example, we needed to find the $n$-th highest 
+The sorted array would be better if, for example, we needed to find the $N$-th highest 
 upvoted post without repeatedly calling this method.
 
 \section*{getPostsWithText}
@@ -131,14 +126,6 @@ Thus, searching every post for this pattern will take $\mathcal O(np(mk) + n(1-p
 worst-case where $p$ is the proportion of posts which match the search pattern.
 This uses $\mathcal O(m)$ extra space.
 
-An alternative would be to use a suffix tree which precomputes all suffixes of 
-each text. This would increase the preprocessing time (in the constructor) 
-to $\mathcal O(nk)$ but decrease the runtime of \verb|getPostsWithText|
-to $\mathcal O(nm)$ which, notably, does not depend on text length $k$ \cite{suffix}.
-However, this is only advantageous if many substrings will be searched. The current 
-Boyer-Moore method will be better if few patterns are searched because it does not 
-have the time cost of computing unneeded suffix trees.
- 
 Furthermore, because of the skip rules of the Boyer-Moore algorithm, it is 
 well-suited to natural English text where the search pattern does not contain many 
 characters in the text and/or does not have repeated segments. 
@@ -146,6 +133,19 @@ If BM encounters a letter in the text not in pattern, it can skip over the lengt
 (bad character rule) \cite{jhu}.
 Similarly if BM matches only a suffix of the pattern then fails, it can skip the rest of the pattern 
 if this suffix does not reoccur in the pattern (good suffix rule) \cite{jhu}.
+
+An alternative would be to use a suffix tree which precomputes all suffixes of 
+each text. This would increase the preprocessing time (in the constructor) 
+to $\mathcal O(nk)$ but decrease the runtime of \verb|getPostsWithText|
+to $\mathcal O(nm)$ which, notably, does not depend on text length $k$ \cite{suffix}.
+However, this is only advantageous if many substrings will be searched. The current 
+Boyer-Moore method will be better if few patterns are searched because it does not 
+have the time cost of computing unneeded suffix trees.
+
+A very naive linear search algorithm would take $\mathcal O(nkm)$ time to search 
+every position of every post's text. For a small space cost, the Boyer-Moore algorithm
+dramatically outperforms this in runtime. Because we assume the search pattern will often 
+be much smaller than the text, even this space cost is negligible. 
 
 \bibliography{bibliography}
 \bibliographystyle{IEEEtran}

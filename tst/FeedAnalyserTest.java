@@ -42,11 +42,15 @@ public class FeedAnalyserTest {
                 sampleAnalyser.getPostsBetweenDates("emily",
                         Util.parseDate("03/01/2019 12:00:00"),
                         Util.parseDate("03/01/2019 12:00:01")));
-        System.out.println(Arrays.toString(
+        assertEquals(new ArrayList<>(),
+                sampleAnalyser.getPostsBetweenDates("emily",
+                        Util.parseDate("03/01/2019 12:00:01"),
+                        Util.parseDate("03/01/2019 12:00:00")));
+        assertEquals(24,
                 sampleAnalyser2.getPostsBetweenDates("james.gvr",
-                Util.parseDate("03/01/2019 12:00:00"),
-                Util.parseDate("05/01/2019 12:00:00")).toArray()
-        ));
+                Util.parseDate("04/01/2019 10:01:00"),
+                Util.parseDate("04/01/2019 10:01:00")).size()
+        );
     }
 
     @Test(timeout=1000)
